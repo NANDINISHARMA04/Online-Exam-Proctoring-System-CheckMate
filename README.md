@@ -175,10 +175,17 @@ The exam starts at **100% trust**. Each violation deducts points:
 - [ ] Mobile-responsive layout
 
 ---
+## 🌐 Live Demo
+
+The project is deployed and accessible at:
+**[https://online-exam-proctoring-system-checkmate-2.onrender.com](https://online-exam-proctoring-system-checkmate-2.onrender.com)**
+
+> ⚠️ **Note:** The app is hosted on Render's free tier, so it may take **30–50 seconds** to load if it has been inactive. Please wait for it to spin up.
+> Camera and microphone features require a local setup — see the [Setup Instructions](#-setup-instructions) below to run the full version on your machine.
 
 ## 👩‍💻 Author
 
-Built by **Nandini** as a college project exploring AI-based exam integrity systems.
+Built by **Nandini Sharma** as a college project exploring AI-based exam integrity systems.
 
 ---
 
