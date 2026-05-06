@@ -84,7 +84,8 @@ Check-Mate/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/check-mate.git
+git clone https://github.com/NANDINISHARMA04/Online-Exam-Proctoring-System-CheckMate<img width="1442" height="824" alt="Screenshot 2026-05-06 at 10 43 43 AM" src="https://github.com/user-attachments/assets/d330133a-c222-48dc-b7ea-9d781af7034f" />
+
 cd check-mate
 ```
 
@@ -160,12 +161,6 @@ The exam starts at **100% trust**. Each violation deducts points:
 - **Frontend:** Vanilla JS, face-api.js (@vladmandic build), Web Audio API, Fullscreen API
 - **Styling:** Custom CSS (cyberpunk dark theme, IBM Plex Mono, Space Grotesk)
 - **Logging:** JSON + CSV via Python's built-in `csv` and `json` modules
-
----
-
-## 📸 Screenshots
-
-> _Add screenshots of the setup screen, exam interface, and results screen here._
 
 ---
 
