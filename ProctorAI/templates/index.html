@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Check-Mate — Secure Exam System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+<!-- FIX #1: Use correct CDN for face-api.js (vladmandic build — same API surface) -->
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+
+<style>
+/* ══════════════════════════════════════════
+   ProctorAI — Master Stylesheet
+══════════════════════════════════════════ */
+:root {
+  --bg:#080b12; --bg2:#0d1220; --bg3:#121929;
+  --border:#1e2d45; --border2:#243550;
+  --accent:#00d4ff; --accent2:#0099bb;
+  --green:#00ff88; --yellow:#ffcc00; --red:#ff3355; --red2:#cc0022;
+  --text:#c8d8f0; --text2:#7090b0; --text3:#405070;
+  --font:'Space Grotesk',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;overflow:hidden}
+.screen{display:none;width:100vw;height:100vh;position:relative;overflow:hidden}
+.screen.active{display:flex;flex-direction:column}
+#screen-setup{align-items:center;justify-content:center}
+.setup-bg{position:absolute;inset:0;pointer-events:none}
+.grid-lines{position:absolute;inset:0;background-image:linear-gradient(rgba(0,212,255,.04)1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.04)1px,transparent 1px);background-size:40px 40px}
+.glow-orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.25}
+.orb1{width:500px;height:500px;background:#0044ff;top:-150px;left:-150px}
+.orb2{width:400px;height:400px;background:#00ccff;bottom:-100px;right:-100px}
+.setup-card{position:relative;width:680px;max-width:95vw;background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:40px;box-shadow:0 40px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.04)}
+.brand{display:flex;align-items:center;gap:8px;margin-bottom:28px}
+.brand-icon{font-size:22px;color:var(--accent)}.brand-icon.small{font-size:16px;color:var(--accent)}
+.brand-name{font-family:var(--mono);font-size:16px;font-weight:600;letter-spacing:2px}
+.brand-tag{font-family:var(--mono);font-size:10px;background:var(--accent);color:var(--bg);padding:2px 6px;border-radius:4px}
+.setup-title{font-size:32px;font-weight:700;line-height:1.2;margin-bottom:10px;letter-spacing:-.5px}
+.setup-title em{font-style:normal;color:var(--accent)}
+.setup-sub{color:var(--text2);font-size:14px;margin-bottom:32px;line-height:1.6}
+.setup-form{display:flex;flex-direction:column;gap:16px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--text2);text-transform:uppercase}
+.field input{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:var(--font);font-size:14px;transition:border .2s;outline:none}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.1)}
+.field select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:var(--font);font-size:14px;transition:border .2s;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%237090b0' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.1)}
+.field select option{background:var(--bg2);color:var(--text);padding:8px}
+.permissions-check{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.perm-item{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;transition:all .3s}
+.perm-item .perm-icon{font-size:14px}
+.perm-item.ok{color:var(--green);border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.05)}
+.perm-item.fail{color:var(--red);border-color:rgba(255,51,85,.3);background:rgba(255,51,85,.05)}
+.btn-start{display:flex;align-items:center;justify-content:center;gap:12px;background:var(--accent);color:var(--bg);border:none;border-radius:10px;padding:14px 24px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:all .2s}
+.btn-start:hover{background:#33ddff;transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,212,255,.3)}
+.btn-start:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-arrow{font-size:18px}
+#setup-alert{background:rgba(255,204,0,.1);border:1px solid var(--yellow);color:var(--yellow);padding:8px 14px;border-radius:8px;font-size:12px;font-family:var(--mono)}
+
+/* EXAM HEADER */
+.exam-header{display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--border);z-index:10;flex-shrink:0}
+.header-left{display:flex;align-items:center;gap:10px}
+.hdr-subject{font-weight:700;font-size:14px}.hdr-sep{color:var(--text3)}
+.hdr-examid{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.timer-block{display:flex;flex-direction:column;align-items:center}
+.timer-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3)}
+.timer-display{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--accent);letter-spacing:3px;text-shadow:0 0 12px rgba(0,212,255,.4)}
+.timer-display.warning{color:var(--yellow);text-shadow:0 0 12px rgba(255,204,0,.4)}
+.timer-display.danger{color:var(--red);text-shadow:0 0 12px rgba(255,51,85,.4);animation:pulse-timer .5s infinite alternate}
+@keyframes pulse-timer{from{opacity:1}to{opacity:.6}}
+.trust-score-block{display:flex;align-items:baseline;gap:4px}
+.ts-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-right:4px}
+.trust-score{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--green);transition:color .3s}
+.trust-score.medium{color:var(--yellow)}.trust-score.low{color:var(--red)}
+.ts-unit{font-family:var(--mono);font-size:14px;color:var(--text2)}
+.alert-badge{background:var(--red);color:white;font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 10px;border-radius:4px;animation:blink-badge .6s infinite alternate;margin-left:12px}
+@keyframes blink-badge{from{opacity:1}to{opacity:.3}}
+
+/* EXAM BODY */
+.exam-body{display:grid;grid-template-columns:1fr 300px;flex:1;overflow:hidden}
+.questions-panel{display:flex;flex-direction:column;padding:24px 28px;overflow-y:auto;gap:20px;border-right:1px solid var(--border)}
+.q-progress-bar{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.q-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:2px;transition:width .4s ease}
+#question-container{flex:1}
+.question-block{animation:fade-in .3s ease}
+@keyframes fade-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.q-num{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:12px}
+.q-num span{color:var(--text3)}
+.q-text{font-size:17px;font-weight:500;line-height:1.6;color:var(--text);margin-bottom:24px}
+.options-list{display:flex;flex-direction:column;gap:10px;list-style:none}
+.option-item{display:flex;align-items:flex-start;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;cursor:pointer;transition:all .2s;user-select:none}
+.option-item:hover{border-color:var(--accent2);background:var(--bg3)}
+.option-item.selected{border-color:var(--accent);background:rgba(0,212,255,.07)}
+.opt-letter{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);min-width:20px;padding-top:1px}
+.option-item.selected .opt-letter{color:var(--green)}
+.opt-text{font-size:14px;line-height:1.5;color:var(--text)}
+.opt-check{margin-left:auto;color:var(--green);font-size:16px}
+.q-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:auto}
+.btn-nav{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:9px 20px;border-radius:8px;font-family:var(--font);font-size:13px;cursor:pointer;transition:all .2s}
+.btn-nav:hover{border-color:var(--accent2);color:var(--accent)}
+.btn-nav.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+.btn-nav.primary:hover{background:#33ddff}
+.btn-nav:disabled{opacity:.3;cursor:not-allowed}
+.q-dots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.q-dot{width:10px;height:10px;border-radius:50%;background:var(--border2);border:1px solid var(--border2);cursor:pointer;transition:all .2s}
+.q-dot.answered{background:var(--accent);border-color:var(--accent)}
+.q-dot.active{border-color:var(--green);box-shadow:0 0 6px var(--green)}
+.q-dot.answered.active{background:var(--green);border-color:var(--green)}
+.submit-row{display:flex;justify-content:center}
+.btn-submit{background:var(--green);color:var(--bg);border:none;padding:14px 40px;border-radius:10px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:all .2s}
+.btn-submit:hover{background:#33ffaa;transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,255,136,.25)}
+
+/* PROCTOR PANEL */
+.proctor-panel{display:flex;flex-direction:column;gap:12px;padding:14px;background:var(--bg2);overflow-y:auto}
+.cam-wrapper{position:relative;width:100%;aspect-ratio:4/3;background:#000;border:1px solid var(--border2);border-radius:10px;overflow:hidden;flex-shrink:0}
+#cam-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+/* Canvas must NOT be CSS-mirrored — landmark coords are in raw video space.
+   The video element is mirrored for natural self-view, but we mirror the
+   canvas via ctx.scale(-1,1) in JS so overlays track correctly. */
+#face-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cam-overlay-top{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;gap:6px;pointer-events:none}
+.face-badge,.gaze-badge{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:1px;padding:3px 8px;border-radius:4px}
+.face-badge.detecting{background:rgba(255,204,0,.85);color:#000}
+.face-badge.ok{background:rgba(0,255,136,.85);color:#000}
+.face-badge.missing,.face-badge.multiple{background:rgba(255,51,85,.85);color:#fff;animation:blink-badge .5s infinite alternate}
+.gaze-badge{background:rgba(0,0,0,.7);color:var(--accent);border:1px solid rgba(0,212,255,.3)}
+.gaze-badge.away{color:var(--red);border-color:rgba(255,51,85,.5);animation:blink-badge .5s infinite alternate}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5;animation:scan 3s linear infinite;pointer-events:none}
+@keyframes scan{from{top:0}to{top:100%}}
+.meters{display:flex;flex-direction:column;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px}
+.meter-row{display:grid;grid-template-columns:80px 1fr 54px;align-items:center;gap:8px}
+.meter-label{font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--text3);text-transform:uppercase}
+.meter-bar-wrap{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.meter-bar{height:100%;width:0%;border-radius:3px;transition:width .15s ease}
+.meter-bar.sound{background:linear-gradient(90deg,var(--green),var(--yellow),var(--red))}
+.meter-bar.head{background:linear-gradient(90deg,var(--accent),var(--yellow))}
+.meter-bar.gaze{background:linear-gradient(90deg,var(--green),var(--red))}
+.meter-val{font-family:var(--mono);font-size:9px;color:var(--text2);text-align:right}
+.violation-log{background:var(--bg3);border:1px solid var(--border);border-radius:8px;flex:1;display:flex;flex-direction:column;min-height:80px;max-height:150px;overflow:hidden}
+.log-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase}
+.vio-count{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+.vio-list{list-style:none;overflow-y:auto;flex:1;padding:4px 0}
+.vio-item{display:flex;align-items:flex-start;gap:6px;padding:5px 12px;font-size:11px;line-height:1.4;border-bottom:1px solid rgba(30,45,69,.5);animation:slide-in .3s ease}
+@keyframes slide-in{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.vio-item .vio-time{font-family:var(--mono);font-size:9px;color:var(--text3);flex-shrink:0}
+.vio-item .vio-msg{color:var(--text2)}
+.vio-item.high .vio-msg,.vio-item.critical .vio-msg{color:var(--red)}
+.vio-item.medium .vio-msg{color:var(--yellow)}
+.stats-row{display:flex;gap:6px}
+.stat-pill{flex:1;display:flex;flex-direction:column;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 6px;font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:.5px;text-align:center;gap:3px}
+.stat-pill strong{font-size:16px;font-weight:700;color:var(--text);font-family:var(--mono)}
+.stat-icon{font-size:12px}
+.violation-flash{position:fixed;inset:0;background:rgba(255,51,85,.08);border:3px solid var(--red);pointer-events:none;z-index:100;animation:flash-frame .3s ease forwards}
+@keyframes flash-frame{0%{opacity:1}100%{opacity:0}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
+.modal-card{background:var(--bg2);border:1px solid var(--red);border-radius:16px;padding:40px;max-width:420px;width:90%;text-align:center;box-shadow:0 0 60px rgba(255,51,85,.2);animation:modal-pop .3s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes modal-pop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.modal-icon{font-size:48px;margin-bottom:16px}
+.modal-card h2{font-size:20px;margin-bottom:10px;color:var(--red)}
+.modal-card p{color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:16px;white-space:pre-line}
+.modal-warn-count{font-family:var(--mono);font-size:11px;color:var(--yellow);margin-bottom:16px;display:block}
+.modal-warn-count.danger{color:var(--red)}
+.warn-bar-wrap{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:20px}
+#warn-progress-bar{height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width .3s,background .3s}
+.btn-modal-ok{background:var(--red);color:white;border:none;padding:11px 30px;border-radius:8px;font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-modal-ok:hover{background:#ff5577}
+
+/* RESULTS SCREEN */
+#screen-results{align-items:center;justify-content:center}
+.results-bg{position:absolute;inset:0;pointer-events:none}
+.results-card{position:relative;width:720px;max-width:95vw;max-height:92vh;background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:40px;box-shadow:0 40px 80px rgba(0,0,0,.6);overflow-y:auto}
+.results-header{margin:0 0 28px}
+.results-header h1{font-size:28px;font-weight:700;margin-bottom:4px}
+.res-candidate{color:var(--text2);font-size:14px}
+.results-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px}
+.res-block{background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.res-label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase}
+.res-big-num{font-family:var(--mono);font-size:40px;font-weight:700;color:var(--accent)}
+.trust-col{color:var(--green)}
+.res-unit{font-family:var(--mono);font-size:14px;color:var(--text3)}
+.res-status{font-family:var(--mono);font-size:18px;font-weight:700;padding:8px 16px;border-radius:6px}
+.res-status.CLEAN{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3)}
+.res-status.FLAGGED{background:rgba(255,204,0,.15);color:var(--yellow);border:1px solid rgba(255,204,0,.3)}
+.res-status.SUSPICIOUS{background:rgba(255,51,85,.15);color:var(--red);border:1px solid rgba(255,51,85,.3)}
+.results-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:24px}
+.rstat{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2)}
+.rstat strong{font-family:var(--mono);font-size:15px;color:var(--text)}
+.incident-summary h3{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:12px}
+#res-incidents{list-style:none;display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto}
+#res-incidents li{font-size:12px;color:var(--text2);padding:6px 10px;background:var(--bg3);border-radius:4px;border-left:3px solid var(--red)}
+#res-incidents li.clean-entry{border-left-color:var(--green);color:var(--green)}
+.hidden{display:none!important}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+@media(max-width:800px){.exam-body{grid-template-columns:1fr}.proctor-panel{display:none}.results-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ══ SCREEN 1: SETUP ══ -->
+<div id="screen-setup" class="screen active">
+  <div class="setup-bg">
+    <div class="grid-lines"></div>
+    <div class="glow-orb orb1"></div>
+    <div class="glow-orb orb2"></div>
+  </div>
+  <div class="setup-card">
+    <div class="brand">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">Check-Mate</span>
+      <span class="brand-tag">v3.0</span>
+    </div>
+    <h1 class="setup-title">Secure Online<br/><em>Examination</em> System</h1>
+    <p class="setup-sub">AI-powered proctoring with real-time face tracking, gaze detection, and ambient sound analysis.</p>
+    <div class="setup-form">
+      <div class="field-row">
+        <div class="field"><label>Candidate Name</label><input type="text" id="inp-name" placeholder="Enter full name"/></div>
+        <div class="field"><label>Exam ID</label><input type="text" id="inp-examid" placeholder="EX-2024-001" value="EX-2024-001"/></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Duration (minutes)</label><input type="number" id="inp-duration" value="30" min="1" max="180"/></div>
+        <div class="field">
+          <label>Branch / Field</label>
+          <select id="inp-subject">
+            <option value="Mixed">🔀 Mixed (All Fields)</option>
+            <option value="Computer Science">💻 Computer Science</option>
+            <option value="Mathematics">📐 Mathematics</option>
+            <option value="Science">🔬 Science</option>
+            <option value="English">📖 English</option>
+            <option value="Logical Reasoning">🧩 Logical Reasoning</option>
+            <option value="General Knowledge">🌍 General Knowledge</option>
+            <option value="Current Affairs">📰 Current Affairs</option>
+          </select>
+        </div>
+      </div>
+      <div class="permissions-check">
+        <div class="perm-item" id="perm-camera"><span class="perm-icon">◎</span> Camera Access</div>
+        <div class="perm-item" id="perm-mic"><span class="perm-icon">◎</span> Microphone Access</div>
+        <div class="perm-item" id="perm-screen"><span class="perm-icon">◎</span> Fullscreen Mode</div>
+        <div class="perm-item" id="perm-ai"><span class="perm-icon">◎</span> AI Models Ready</div>
+      </div>
+      <div id="setup-alert" class="hidden"></div>
+      <button class="btn-start" id="btn-start" onclick="startExam()">
+        <span>Initialize Proctoring</span><span class="btn-arrow">→</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN 2: EXAM ══ -->
+<div id="screen-exam" class="screen">
+  <header class="exam-header">
+    <div class="header-left">
+      <span class="brand-icon small">⬡</span>
+      <span id="hdr-subject" class="hdr-subject">CS101</span>
+      <span class="hdr-sep">|</span>
+      <span id="hdr-examid" class="hdr-examid">EX-2024-001</span>
+      <span class="hdr-sep">|</span>
+      <span id="hdr-candidate" class="hdr-examid"></span>
+    </div>
+    <div class="header-center">
+      <div class="timer-block">
+        <span class="timer-label">TIME REMAINING</span>
+        <span id="timer-display" class="timer-display">30:00</span>
+      </div>
+    </div>
+    <div class="header-right" style="display:flex;align-items:center;gap:12px">
+      <div class="trust-score-block">
+        <span class="ts-label">TRUST</span>
+        <span id="trust-score" class="trust-score">100</span>
+        <span class="ts-unit">%</span>
+      </div>
+      <div id="alert-badge" class="alert-badge hidden">⚠ ALERT</div>
+    </div>
+  </header>
+
+  <div class="exam-body">
+    <!-- Questions -->
+    <main class="questions-panel" id="questions-panel">
+      <div class="q-progress-bar"><div id="q-progress-fill" class="q-progress-fill" style="width:0%"></div></div>
+      <div id="q-progress-count" style="font-family:var(--mono);font-size:10px;color:var(--text3)">0 / 10 answered</div>
+      <div id="question-container"></div>
+      <div class="q-nav">
+        <button class="btn-nav" id="btn-prev" onclick="prevQuestion()">← Prev</button>
+        <div class="q-dots" id="q-dots"></div>
+        <button class="btn-nav primary" id="btn-next" onclick="nextQuestion()">Next →</button>
+      </div>
+      <div id="submit-row" class="submit-row hidden">
+        <button class="btn-submit" onclick="submitExam()">Submit Exam</button>
+      </div>
+    </main>
+
+    <!-- Proctor panel -->
+    <aside class="proctor-panel">
+      <div class="cam-wrapper">
+        <video id="cam-video" autoplay muted playsinline></video>
+        <canvas id="face-canvas"></canvas>
+        <div class="cam-overlay-top">
+          <div id="face-status" class="face-badge detecting">Detecting…</div>
+          <div id="gaze-status" class="gaze-badge">GAZE: CENTER</div>
+        </div>
+        <div class="scan-line"></div>
+      </div>
+      <div class="meters">
+        <div class="meter-row">
+          <span class="meter-label">SOUND</span>
+          <div class="meter-bar-wrap"><div id="sound-bar" class="meter-bar sound"></div></div>
+          <span id="sound-val" class="meter-val">Silent</span>
+        </div>
+        <div class="meter-row">
+          <span class="meter-label">HEAD MOVE</span>
+          <div class="meter-bar-wrap"><div id="head-bar" class="meter-bar head"></div></div>
+          <span id="head-val" class="meter-val">—</span>
+        </div>
+        <div class="meter-row">
+          <span class="meter-label">EYE GAZE</span>
+          <div class="meter-bar-wrap"><div id="gaze-bar" class="meter-bar gaze"></div></div>
+          <span id="gaze-val" class="meter-val">CENTER</span>
+        </div>
+      </div>
+      <div class="violation-log">
+        <div class="log-header">
+          <span>INCIDENT LOG</span>
+          <span id="vio-count" class="vio-count">0</span>
+        </div>
+        <ul id="vio-list" class="vio-list"></ul>
+      </div>
+      <div class="stats-row">
+        <div class="stat-pill"><span class="stat-icon">⇆</span><span>Tabs</span><strong id="stat-tabs">0</strong></div>
+        <div class="stat-pill"><span class="stat-icon">👁</span><span>Looks</span><strong id="stat-lookaways">0</strong></div>
+        <div class="stat-pill"><span class="stat-icon">🔊</span><span>Noise</span><strong id="stat-noise">0</strong></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Flash overlay -->
+  <div id="violation-flash" class="violation-flash hidden"></div>
+
+  <!-- Warning modal -->
+  <div id="warning-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-icon">⚠</div>
+      <h2 id="modal-title">Suspicious Activity</h2>
+      <p id="modal-msg">Please keep your face visible and eyes on screen.</p>
+      <span id="modal-warning-count" class="modal-warn-count hidden"></span>
+      <div class="warn-bar-wrap"><div id="warn-progress-bar"></div></div>
+      <button class="btn-modal-ok" id="modal-ok-btn" onclick="Proctor.dismissWarning()">I Understand</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN 3: RESULTS ══ -->
+<div id="screen-results" class="screen">
+  <div class="results-bg"><div class="grid-lines"></div></div>
+  <div class="results-card">
+    <div class="brand"><span class="brand-icon">⬡</span><span class="brand-name">Check-Mate</span></div>
+    <div class="results-header">
+      <h1>Exam Submitted</h1>
+      <p id="res-candidate" class="res-candidate"></p>
+    </div>
+    <div class="results-grid">
+      <div class="res-block">
+        <span class="res-label">Score</span>
+        <span id="res-score" class="res-big-num">—</span>
+        <span class="res-unit">/ 100</span>
+      </div>
+      <div class="res-block">
+        <span class="res-label">Trust Score</span>
+        <span id="res-trust" class="res-big-num trust-col">—</span>
+        <span class="res-unit">%</span>
+      </div>
+      <div class="res-block">
+        <span class="res-label">Proctor Status</span>
+        <span id="res-status" class="res-status">CLEAN</span>
+      </div>
+    </div>
+    <div class="results-stats">
+      <div class="rstat"><span>Tab Switches</span><strong id="rstat-tabs">0</strong></div>
+      <div class="rstat"><span>Look-Aways</span><strong id="rstat-looks">0</strong></div>
+      <div class="rstat"><span>Noise Events</span><strong id="rstat-noise">0</strong></div>
+      <div class="rstat"><span>Violations</span><strong id="rstat-warns">0</strong></div>
+      <div class="rstat"><span>Time Taken</span><strong id="rstat-time">—</strong></div>
+      <div class="rstat"><span>Answered</span><strong id="rstat-answered">0/10</strong></div>
+    </div>
+    <div class="incident-summary">
+      <h3>Incident Summary</h3>
+      <ul id="res-incidents"></ul>
+    </div>
+    <button class="btn-start" style="margin-top:2rem" onclick="location.reload()">Start New Exam</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  MULTI-FIELD QUESTION BANK (70+ questions across 7 fields)
+// ══════════════════════════════════════════════════════════════
+const QUESTION_BANK = {
+  "Computer Science": [
+    {id:"cs1",  text:"What does CPU stand for?", options:["Central Processing Unit","Central Program Utility","Computer Processing Unit","Core Processor Unit"], correct:0},
+    {id:"cs2",  text:"Which data structure operates on a LIFO principle?", options:["Queue","Stack","Linked List","Binary Tree"], correct:1},
+    {id:"cs3",  text:"What is the time complexity of binary search on a sorted array?", options:["O(n)","O(n²)","O(log n)","O(1)"], correct:2},
+    {id:"cs4",  text:"Which protocol transfers web pages over the internet?", options:["FTP","SMTP","HTTP","SSH"], correct:2},
+    {id:"cs5",  text:"In OOP, what is 'encapsulation'?", options:["Inheriting from a parent class","Bundling data and methods within a class","Overloading methods","Type casting"], correct:1},
+    {id:"cs6",  text:"What is the base of the binary number system?", options:["8","10","16","2"], correct:3},
+    {id:"cs7",  text:"Which sorting algorithm has O(n log n) average-case complexity?", options:["Bubble Sort","Selection Sort","Merge Sort","Insertion Sort"], correct:2},
+    {id:"cs8",  text:"What does RAM stand for?", options:["Read Access Memory","Random Access Memory","Rapid Application Memory","Read and Modify Memory"], correct:1},
+    {id:"cs9",  text:"Which OSI layer handles routing between networks?", options:["Data Link Layer","Transport Layer","Network Layer","Session Layer"], correct:2},
+    {id:"cs10", text:"What does SQL stand for?", options:["Structured Query Language","Standard Query Language","System Query Logic","Sequential Query Language"], correct:0},
+    {id:"cs11", text:"Which symbol is used for single-line comments in Python?", options:["//","/*","#","--"], correct:2},
+    {id:"cs12", text:"What is the default port for HTTPS?", options:["80","21","443","8080"], correct:2},
+  ],
+  "Mathematics": [
+    {id:"ma1",  text:"What is the value of π to two decimal places?", options:["3.12","3.14","3.16","3.18"], correct:1},
+    {id:"ma2",  text:"What is the derivative of sin(x)?", options:["-cos(x)","cos(x)","-sin(x)","tan(x)"], correct:1},
+    {id:"ma3",  text:"If 2x + 3 = 11, what is x?", options:["3","4","5","6"], correct:1},
+    {id:"ma4",  text:"What is the sum of angles in a triangle?", options:["90°","180°","270°","360°"], correct:1},
+    {id:"ma5",  text:"What is the square root of 144?", options:["11","12","13","14"], correct:1},
+    {id:"ma6",  text:"What is 7! (7 factorial)?", options:["2520","5040","720","40320"], correct:1},
+    {id:"ma7",  text:"If r = 5, what is the circumference of the circle (2πr)?", options:["10π","5π","25π","π"], correct:0},
+    {id:"ma8",  text:"What is log₁₀(1000)?", options:["1","2","3","4"], correct:2},
+    {id:"ma9",  text:"Which of the following is a prime number?", options:["9","15","21","29"], correct:3},
+    {id:"ma10", text:"What is 15% of 200?", options:["20","25","30","35"], correct:2},
+  ],
+  "Science": [
+    {id:"sc1",  text:"What is the chemical formula for water?", options:["CO₂","H₂O","NaCl","O₂"], correct:1},
+    {id:"sc2",  text:"Which gas do plants absorb during photosynthesis?", options:["Oxygen","Nitrogen","Carbon Dioxide","Hydrogen"], correct:2},
+    {id:"sc3",  text:"What force keeps planets in orbit around the Sun?", options:["Magnetism","Gravity","Friction","Electrostatics"], correct:1},
+    {id:"sc4",  text:"What is the powerhouse of the cell?", options:["Nucleus","Ribosome","Mitochondria","Golgi Body"], correct:2},
+    {id:"sc5",  text:"What is the approximate speed of light?", options:["3×10⁵ km/s","3×10⁸ m/s","3×10⁶ m/s","3×10⁴ km/s"], correct:1},
+    {id:"sc6",  text:"Which element has atomic number 1?", options:["Helium","Carbon","Oxygen","Hydrogen"], correct:3},
+    {id:"sc7",  text:"Newton's second law relates force to:", options:["Mass × Velocity","Mass × Acceleration","Mass × Distance","Velocity × Time"], correct:1},
+    {id:"sc8",  text:"What type of bond shares electrons between atoms?", options:["Ionic","Covalent","Metallic","Hydrogen"], correct:1},
+    {id:"sc9",  text:"Which vitamin is produced when skin is exposed to sunlight?", options:["Vitamin A","Vitamin B12","Vitamin C","Vitamin D"], correct:3},
+    {id:"sc10", text:"What is the SI unit of electric current?", options:["Volt","Watt","Ampere","Ohm"], correct:2},
+  ],
+  "English": [
+    {id:"en1",  text:"Which of the following is a synonym for 'verbose'?", options:["Concise","Wordy","Brief","Silent"], correct:1},
+    {id:"en2",  text:"Identify the correct sentence:", options:["She don't know","She doesn't knows","She doesn't know","She not know"], correct:2},
+    {id:"en3",  text:"What is the antonym of 'benevolent'?", options:["Kind","Generous","Malevolent","Helpful"], correct:2},
+    {id:"en4",  text:"Which of these is a conjunction?", options:["Quickly","However","And","The"], correct:2},
+    {id:"en5",  text:"'The wind howled like a lonely wolf.' This is an example of:", options:["Metaphor","Simile","Hyperbole","Alliteration"], correct:1},
+    {id:"en6",  text:"What is the plural of 'criterion'?", options:["Criterions","Criterias","Criteria","Criterium"], correct:2},
+    {id:"en7",  text:"'She had finished the report before noon.' Which tense?", options:["Simple Past","Past Continuous","Past Perfect","Present Perfect"], correct:2},
+    {id:"en8",  text:"The word 'ubiquitous' means:", options:["Rare","Present everywhere","Invisible","Slow"], correct:1},
+    {id:"en9",  text:"Choose the correctly punctuated sentence:", options:["Its a beautiful day.","It's a beautiful day.","Its' a beautiful day.","It is, a beautiful day."], correct:1},
+    {id:"en10", text:"Which literary device gives human traits to non-human things?", options:["Onomatopoeia","Irony","Personification","Allusion"], correct:2},
+  ],
+  "Logical Reasoning": [
+    {id:"lr1",  text:"If all Bloops are Razzles and all Razzles are Lazzles, then all Bloops are:", options:["Razzles only","Lazzles","Neither","Cannot determine"], correct:1},
+    {id:"lr2",  text:"What comes next in the series? 2, 4, 8, 16, __", options:["24","28","32","36"], correct:2},
+    {id:"lr3",  text:"A is taller than B. B is taller than C. Who is the shortest?", options:["A","B","C","Cannot determine"], correct:2},
+    {id:"lr4",  text:"Find the odd one out: 3, 5, 7, 9, 11", options:["3","5","9","11"], correct:2},
+    {id:"lr5",  text:"A train travels 60 km in 1 hour. How far in 90 minutes?", options:["80 km","90 km","100 km","120 km"], correct:1},
+    {id:"lr6",  text:"Which number is missing? 1, 4, 9, 16, __, 36", options:["20","24","25","28"], correct:2},
+    {id:"lr7",  text:"Complete the analogy — Book : Library :: Painting : ?", options:["Museum","Artist","Canvas","School"], correct:0},
+    {id:"lr8",  text:"Which comes next in the series: A, C, F, J, ?", options:["M","N","O","P"], correct:3},
+    {id:"lr9",  text:"If ROSE is coded as TQUG, how is BEAD coded?", options:["DFCF","DGCF","DCGF","DGFC"], correct:1},
+    {id:"lr10", text:"Pointing to a man, Asha says 'He is the son of my father's only daughter.' What is the man to Asha?", options:["Brother","Father","Son","Uncle"], correct:2},
+  ],
+  "General Knowledge": [
+    {id:"gk1",  text:"Which planet is known as the Red Planet?", options:["Venus","Saturn","Mars","Jupiter"], correct:2},
+    {id:"gk2",  text:"Who wrote 'Romeo and Juliet'?", options:["Charles Dickens","William Shakespeare","Jane Austen","Leo Tolstoy"], correct:1},
+    {id:"gk3",  text:"What is the capital of Australia?", options:["Sydney","Melbourne","Brisbane","Canberra"], correct:3},
+    {id:"gk4",  text:"How many continents are there on Earth?", options:["5","6","7","8"], correct:2},
+    {id:"gk5",  text:"Which ocean is the largest?", options:["Atlantic","Indian","Arctic","Pacific"], correct:3},
+    {id:"gk6",  text:"What is the chemical symbol for gold?", options:["Go","Gd","Au","Ag"], correct:2},
+    {id:"gk7",  text:"In which year did World War II end?", options:["1943","1944","1945","1946"], correct:2},
+    {id:"gk8",  text:"Which country is the largest by area?", options:["China","USA","Canada","Russia"], correct:3},
+    {id:"gk9",  text:"What is the hardest natural substance on Earth?", options:["Gold","Iron","Diamond","Quartz"], correct:2},
+    {id:"gk10", text:"Which instrument has 88 keys?", options:["Violin","Guitar","Piano","Harp"], correct:2},
+  ],
+  "Current Affairs": [
+    {id:"ca1",  text:"Which organisation maintains the World Wide Web standards?", options:["UNESCO","W3C","ISO","IEEE"], correct:1},
+    {id:"ca2",  text:"What does 'AI' stand for in technology?", options:["Automated Interface","Artificial Intelligence","Automated Integration","Analytical Interface"], correct:1},
+    {id:"ca3",  text:"Which company developed the ChatGPT model?", options:["Google","Meta","OpenAI","Microsoft"], correct:2},
+    {id:"ca4",  text:"What does 'URL' stand for?", options:["Uniform Resource Locator","Universal Reference Link","Unified Resource Label","Uniform Routing Link"], correct:0},
+    {id:"ca5",  text:"Which country launched the first satellite, Sputnik?", options:["USA","China","Germany","Soviet Union"], correct:3},
+    {id:"ca6",  text:"What does 'GDP' stand for?", options:["Gross Domestic Product","General Domestic Production","Global Development Plan","Gross Development Product"], correct:0},
+    {id:"ca7",  text:"Which body awards the Nobel Prize?", options:["United Nations","UNESCO","Nobel Committee, Sweden","World Economic Forum"], correct:2},
+    {id:"ca8",  text:"What does 'IoT' stand for?", options:["Internet of Technology","Internet of Things","Interface of Technology","Integration of Things"], correct:1},
+    {id:"ca9",  text:"What is the full form of 'PDF'?", options:["Portable Document Format","Printable Document File","Personal Data Format","Published Document Format"], correct:0},
+    {id:"ca10", text:"Which paradigm does React.js follow?", options:["Procedural","Object-Oriented","Component-Based / Declarative","Functional only"], correct:2},
+  ],
+};
+
+const FIELD_COLOURS = {
+  "Computer Science":"#00d4ff","Mathematics":"#ff9f00","Science":"#34d399",
+  "English":"#f472b6","Logical Reasoning":"#fb923c",
+  "General Knowledge":"#a78bfa","Current Affairs":"#60a5fa",
+};
+
+function _shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function buildExamQuestions(subject,count){
+  let pool=[];
+  if(subject==="Mixed"||!QUESTION_BANK[subject]){
+    const fields=Object.keys(QUESTION_BANK);
+    const perField=Math.ceil(count/fields.length);
+    fields.forEach(f=>_shuffle(QUESTION_BANK[f]).slice(0,perField).forEach(q=>pool.push({...q,_field:f})));
+  } else {
+    pool=QUESTION_BANK[subject].map(q=>({...q,_field:subject}));
+  }
+  return _shuffle(pool).slice(0,count).map((q,i)=>({...q,id:i+1}));
+}
+
+let QUESTIONS = buildExamQuestions("Mixed", 10);
+
+// ══════════════════════════════════════════════════════════════
+//  PROCTOR ENGINE — FIX #2: Correct model URL & boot sequence
+// ══════════════════════════════════════════════════════════════
+const Proctor = (() => {
+  const state = {
+    active:false, modelsLoaded:false, terminated:false,
+    trustScore:100, violations:[], warningCount:0,
+    warningActive:false, warningQueue:[],
+    faceInterval:null, audioContext:null, analyser:null,
+    videoStream:null, audioStream:null,
+    lastHeadPos:null, headMoveBuffer:[], lastHeadDir:'FORWARD',
+    gazeAwayStart:null, noFaceStart:null,
+    stats:{tabs:0,lookAways:0,noiseEvents:0},
+    startTime:null,
+  };
+
+  const FACE_INTERVAL   = 700;
+  const SOUND_DB_THRESH = -33;
+  const GAZE_AWAY_MS    = 2500;
+  const NO_FACE_MS      = 3000;
+  const HEAD_THRESH     = 18;
+  const MAX_WARNINGS    = 5;
+  const TRUST_DEDUCT    = {low:2,medium:5,high:10,critical:20};
+  const AUTO_TERM_TRUST = 30;
+
+  // FIX #2a: Correct model URI for @vladmandic/face-api
+  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
+
+  const $ = id => document.getElementById(id);
+
+  // ── Init: load models ──────────────────────────────────────
+  async function init() {
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+      state.modelsLoaded = true;
+      console.log('[ProctorAI] Models loaded ✓');
+      markPerm('perm-ai', true);
+    } catch(e) {
+      console.warn('[ProctorAI] Model load failed, fallback mode:', e);
+      state.modelsLoaded = false;
+      markPerm('perm-ai', false);
+    }
+  }
+
+  function markPerm(id, ok) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.add(ok ? 'ok' : 'fail');
+    el.querySelector('.perm-icon').textContent = ok ? '✓' : '✗';
+  }
+
+  // ── Start (called after exam start button) ─────────────────
+  // FIX #3: This was never called from exam.js — now wired in startExam()
+  async function start(videoEl) {
+    state.active = true;
+    state.startTime = Date.now();
+
+    // Camera
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video:{width:{ideal:640},height:{ideal:480},facingMode:'user'}, audio:false
+      });
+      videoEl.srcObject = stream;
+      state.videoStream = stream;
+      await new Promise(r => { videoEl.onloadedmetadata = r; });
+      videoEl.play();
+      markPerm('perm-camera', true);
+    } catch(e) {
+      console.error('[ProctorAI] Camera error:', e);
+      markPerm('perm-camera', false);
+      logViolation('Camera access denied or unavailable','high');
+    }
+
+    // Microphone
+    await initAudio();
+
+    // Fullscreen
+    try {
+      await document.documentElement.requestFullscreen();
+      markPerm('perm-screen', true);
+    } catch(e) { markPerm('perm-screen', false); }
+
+    // FIX #4: Start detection loop — was never started
+    state.faceInterval = setInterval(() => detectFace(videoEl), FACE_INTERVAL);
+    requestAnimationFrame(audioLoop);
+
+    // Event listeners
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('blur', onWindowBlur);
+  }
+
+  // ── Audio ──────────────────────────────────────────────────
+  async function initAudio() {
+    try {
+      const mic = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+      state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const src = state.audioContext.createMediaStreamSource(mic);
+      state.analyser = state.audioContext.createAnalyser();
+      state.analyser.fftSize = 512;
+      state.analyser.smoothingTimeConstant = 0.75;
+      src.connect(state.analyser);
+      state.audioStream = mic;
+      markPerm('perm-mic', true);
+    } catch(e) {
+      console.warn('[ProctorAI] Mic unavailable:', e);
+      markPerm('perm-mic', false);
+    }
+  }
+
+  let noiseCooldown = false;
+  function audioLoop() {
+    if (!state.active || state.terminated) return;
+    if (state.analyser) {
+      const buf = new Uint8Array(state.analyser.frequencyBinCount);
+      state.analyser.getByteFrequencyData(buf);
+      const avg = buf.reduce((a,b) => a+b, 0) / buf.length;
+      const db  = avg === 0 ? -100 : 20 * Math.log10(avg / 255);
+      const pct = Math.max(0, Math.min(100, ((db + 80) / 80) * 100));
+
+      const sb = $('sound-bar');
+      if (sb) {
+        sb.style.width = pct + '%';
+        sb.style.background = db > SOUND_DB_THRESH ? '#ff3355' : db > -50 ? '#ffcc00' : '';
+      }
+      const sv = $('sound-val');
+      if (sv) sv.textContent = db < -80 ? 'Silent' : Math.round(db) + ' dB';
+
+      if (db > SOUND_DB_THRESH && !noiseCooldown) {
+        noiseCooldown = true;
+        state.stats.noiseEvents++;
+        updateStats();
+        logViolation(`🔊 Noise detected (${Math.round(db)} dB)`, 'medium');
+        deductTrust(TRUST_DEDUCT.medium);
+        showWarning('🔊 Noise Detected',
+          `Loud sound detected (${Math.round(db)} dB). Please ensure a quiet environment.`, false);
+        setTimeout(() => { noiseCooldown = false; }, 6000);
+      }
+    }
+    requestAnimationFrame(audioLoop);
+  }
+
+  // ── Face Detection ─────────────────────────────────────────
+  // FIX #5: Properly size canvas to match actual video element pixels
+  async function detectFace(videoEl) {
+    if (!state.active || state.terminated) return;
+    if (!videoEl || videoEl.readyState < 2) return;
+
+    const canvas = $('face-canvas');
+    if (!canvas) return;
+
+    // FIX #5a: Use videoWidth/videoHeight directly — the video element
+    // may have CSS size ≠ actual pixel stream dimensions.
+    const vw = videoEl.videoWidth  || 320;
+    const vh = videoEl.videoHeight || 240;
+    canvas.width  = vw;
+    canvas.height = vh;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, vw, vh);
+
+    if (state.modelsLoaded && typeof faceapi !== 'undefined') {
+      try {
+        // FIX #6: Use correct options constructor — inputSize must be power of 2
+        const opts = new faceapi.TinyFaceDetectorOptions({inputSize:224, scoreThreshold:0.35});
+        const detections = await faceapi
+          .detectAllFaces(videoEl, opts)
+          .withFaceLandmarks(true);     // true = use tiny landmark model
+        handleFaceResults(detections, canvas, ctx, vw, vh);
+        return;
+      } catch(e) {
+        console.warn('[ProctorAI] detectAllFaces error:', e);
+      }
+    }
+    fallbackDetect(videoEl, ctx, canvas, vw, vh);
+  }
+
+  function handleFaceResults(detections, canvas, ctx, W, H) {
+    const now = Date.now();
+
+    if (detections.length === 0) {
+      // No face
+      if (!state.noFaceStart) state.noFaceStart = now;
+      const elapsed = now - state.noFaceStart;
+      updateFaceBadge('missing', '⚠ NO FACE');
+      drawNoFaceX(ctx, W, H);
+
+      if (elapsed > NO_FACE_MS) {
+        state.noFaceStart = now;
+        state.stats.lookAways++;
+        updateStats();
+        logViolation('👤 No face detected — candidate may have looked away', 'high');
+        deductTrust(TRUST_DEDUCT.high);
+        showWarning('👤 Face Not Detected',
+          'Your face is not visible. Please ensure your face is clearly in frame.', true);
+      }
+      return;
+    }
+
+    state.noFaceStart = null;
+
+    if (detections.length > 1) {
+      updateFaceBadge('multiple', '⚠ MULTI-FACE');
+      logViolation(`👥 Multiple faces detected (${detections.length})`, 'critical');
+      deductTrust(TRUST_DEDUCT.critical);
+      showWarning('👥 Multiple Faces Detected',
+        `${detections.length} faces were detected. Only the registered candidate should be present.`, true);
+    } else {
+      updateFaceBadge('ok', '✓ FACE OK');
+    }
+
+    const det = detections[0];
+    const box = det.detection.box;
+    const lm  = det.landmarks;
+    const positions = lm.positions;   // 68 {x,y} points
+    drawCorners(ctx, box.x, box.y, box.width, box.height,
+      detections.length > 1 ? '#ff3355' : '#00d4ff', W);
+
+    // ── Head Pose via Landmark Geometry ──────────────────────
+    // Use nose tip (30), left cheek (0), right cheek (16), chin (8), forehead (27)
+    // Yaw: nose offset from the midpoint of the two cheek landmarks
+    // Pitch: nose vertical offset from the eye-chin midpoint
+    const noseTip  = positions[30];
+    const lCheek   = positions[0];
+    const rCheek   = positions[16];
+    const chin     = positions[8];
+    const browMid  = positions[27];
+
+    if (noseTip && lCheek && rCheek) {
+      const faceW    = rCheek.x - lCheek.x || 1;
+      const midX     = (lCheek.x + rCheek.x) / 2;
+      const yawRatio = (noseTip.x - midX) / faceW;  // -0.5..0.5
+
+      const faceH    = (chin && browMid) ? (chin.y - browMid.y) || 1 : box.height || 1;
+      const midY     = browMid ? (browMid.y + (chin ? chin.y : browMid.y + faceH)) / 2 : box.y + box.height/2;
+      const pitchRatio = (noseTip.y - midY) / faceH;
+
+      // Movement score: deviation from forward-facing centre
+      const headScore = Math.min(100, (Math.abs(yawRatio) + Math.abs(pitchRatio)) * 120);
+      const hb = $('head-bar');
+      if (hb) hb.style.width = headScore + '%';
+      const hv = $('head-val');
+
+      let headDir = 'FORWARD';
+      if (Math.abs(yawRatio) > 0.13) headDir = yawRatio < 0 ? 'LEFT' : 'RIGHT';
+      else if (pitchRatio < -0.08)   headDir = 'UP';
+      else if (pitchRatio > 0.12)    headDir = 'DOWN';
+
+      if (hv) hv.textContent = headDir;
+
+      if (headDir !== 'FORWARD') {
+        state.headMoveBuffer.push(1);
+        if (state.headMoveBuffer.length > 8) state.headMoveBuffer.shift();
+        const sustained = state.headMoveBuffer.filter(Boolean).length;
+        if (sustained > 5 && (!state.lastHeadDir || state.lastHeadDir !== headDir)) {
+          state.stats.lookAways++;
+          updateStats();
+          logViolation(`🙆 Head turned ${headDir} (sustained)`, 'medium');
+          deductTrust(TRUST_DEDUCT.medium);
+        }
+        state.lastHeadDir = headDir;
+      } else {
+        state.headMoveBuffer.push(0);
+        if (state.headMoveBuffer.length > 8) state.headMoveBuffer.shift();
+        state.lastHeadDir = 'FORWARD';
+      }
+    }
+
+    // ── Gaze Estimation ───────────────────────────────────────
+    // FIX #9: Use correct landmark index ranges for vladmandic face-api
+    // Left eye: 36-41, Right eye: 42-47
+    const leftEyePts  = positions.slice(36, 42);
+    const rightEyePts = positions.slice(42, 48);
+    const gazeState   = estimateGaze(leftEyePts, rightEyePts, box, W);
+    updateGazeDisplay(gazeState, leftEyePts, rightEyePts, ctx, W);
+    handleGaze(gazeState, now);
+
+    // Draw head direction indicator
+    drawHeadIndicator(ctx, box, positions, W, H);
+  }
+
+  function estimateGaze(leftEye, rightEye, box, W) {
+    // ── Iris-position gaze: compare inner vs outer eye corner distances ──
+    // Left eye landmarks 36-41: 36=outer, 39=inner corner
+    // Right eye landmarks 42-47: 42=inner, 45=outer corner
+    // The iris sits between corners; its relative X position within the eye
+    // width tells us gaze direction much more reliably than box-relative pos.
+
+    const avgX = pts => pts.reduce((a,p) => a+p.x, 0) / pts.length;
+    const avgY = pts => pts.reduce((a,p) => a+p.y, 0) / pts.length;
+
+    // Left eye: outer corner is lm[36], inner corner is lm[39]
+    const lOuter = leftEye[0];   // index 36 in full landmark array
+    const lInner = leftEye[3];   // index 39
+    const lCenterX = avgX(leftEye);
+    const lWidth = Math.abs(lInner.x - lOuter.x) || 1;
+    const lIrisRatio = (lCenterX - Math.min(lOuter.x, lInner.x)) / lWidth;
+
+    // Right eye: inner corner is lm[42], outer corner is lm[45]
+    const rInner = rightEye[0];  // index 42
+    const rOuter = rightEye[3];  // index 45
+    const rCenterX = avgX(rightEye);
+    const rWidth = Math.abs(rOuter.x - rInner.x) || 1;
+    const rIrisRatio = (rCenterX - Math.min(rInner.x, rOuter.x)) / rWidth;
+
+    // Average iris ratio across both eyes (0=fully left, 1=fully right in raw coords)
+    const irisRatio = (lIrisRatio + rIrisRatio) / 2;
+
+    // Because video is mirrored for display, left/right labels are inverted:
+    // raw iris moving right (ratio>0.6) appears as looking left to viewer
+    if (irisRatio < 0.35) return 'right';  // raw-right = viewer's left
+    if (irisRatio > 0.65) return 'left';   // raw-left  = viewer's right
+
+    // Vertical: use eye center Y relative to face box
+    const eyeCY = (avgY(leftEye) + avgY(rightEye)) / 2;
+    const normY = (eyeCY - box.y) / (box.height || 1);
+    if (normY < 0.22) return 'up';
+    if (normY > 0.52) return 'down';
+
+    return 'center';
+  }
+
+  function updateGazeDisplay(gazeState, leftEye, rightEye, ctx, W) {
+    const labels = {center:'CENTER ✓',left:'LEFT ◄',right:'► RIGHT',up:'▲ UP',down:'▼ DOWN'};
+    const pcts   = {center:5,left:80,right:80,up:55,down:55};
+
+    const gb = $('gaze-bar');
+    if (gb) gb.style.width = (pcts[gazeState] || 10) + '%';
+    const gv = $('gaze-val');
+    if (gv) gv.textContent = gazeState.toUpperCase();
+    const gz = $('gaze-status');
+    if (gz) {
+      gz.textContent = 'GAZE: ' + (labels[gazeState] || gazeState.toUpperCase());
+      gz.className = 'gaze-badge ' + (gazeState === 'center' ? '' : 'away');
+    }
+
+    // Draw eye dots mirrored to match the CSS-mirrored video display
+    const avgX = pts => pts.reduce((a,p) => a+p.x,0)/pts.length;
+    const avgY = pts => pts.reduce((a,p) => a+p.y,0)/pts.length;
+    ctx.fillStyle = gazeState === 'center' ? 'rgba(0,255,136,.9)' : 'rgba(255,204,0,.9)';
+    [[avgX(leftEye),avgY(leftEye)],[avgX(rightEye),avgY(rightEye)]].forEach(([x,y]) => {
+      // Mirror x: draw at (W - x) so dots align with the CSS-flipped video
+      ctx.beginPath(); ctx.arc(W - x, y, 5, 0, Math.PI*2); ctx.fill();
+      // Outer ring
+      ctx.strokeStyle = gazeState === 'center' ? 'rgba(0,255,136,.4)' : 'rgba(255,204,0,.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(W - x, y, 9, 0, Math.PI*2); ctx.stroke();
+    });
+  }
+
+  let gazeCooldown = false;
+  function handleGaze(gazeState, now) {
+    if (gazeState !== 'center') {
+      if (!state.gazeAwayStart) state.gazeAwayStart = now;
+      if (now - state.gazeAwayStart > GAZE_AWAY_MS && !gazeCooldown) {
+        gazeCooldown = true;
+        state.stats.lookAways++;
+        updateStats();
+        const secs = Math.round((now - state.gazeAwayStart) / 1000);
+        logViolation(`👁 Gaze away — looking ${gazeState} for ${secs}s`, 'medium');
+        deductTrust(TRUST_DEDUCT.medium);
+        showWarning('👁 Gaze Violation',
+          `Your gaze moved ${gazeState} for too long. Keep your eyes on the screen.`, false);
+        state.gazeAwayStart = now;
+        setTimeout(() => { gazeCooldown = false; }, 5000);
+      }
+    } else {
+      state.gazeAwayStart = null;
+    }
+  }
+
+  // ── Drawing helpers ────────────────────────────────────────
+  function drawCorners(ctx, x, y, w, h, color, W) {
+    // Mirror x coords to match CSS-flipped video
+    const mx = W - x - w;
+    const s = 14;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    [[mx,y+s,mx,y,mx+s,y],[mx+w-s,y,mx+w,y,mx+w,y+s],
+     [mx,y+h-s,mx,y+h,mx+s,y+h],[mx+w-s,y+h,mx+w,y+h,mx+w,y+h-s]].forEach(([x1,y1,x2,y2,x3,y3]) => {
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.stroke();
+    });
+  }
+
+  function drawNoFaceX(ctx, W, H) {
+    ctx.strokeStyle = 'rgba(255,51,85,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,4]);
+    ctx.strokeRect(W*.15, H*.08, W*.7, H*.84);
+    ctx.setLineDash([]);
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(W*.35,H*.3); ctx.lineTo(W*.65,H*.7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*.65,H*.3); ctx.lineTo(W*.35,H*.7); ctx.stroke();
+  }
+
+  function drawHeadIndicator(ctx, box, positions, W, H) {
+    const noseTip  = positions[30];
+    const noseBase = positions[27];
+    if (!noseTip || !noseBase) return;
+    // Mirror both points
+    ctx.strokeStyle = 'rgba(0,212,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(W - noseBase.x, noseBase.y);
+    ctx.lineTo(W - noseTip.x, noseTip.y);
+    ctx.stroke();
+  }
+
+  // ── Fallback (no AI models) ────────────────────────────────
+  function fallbackDetect(videoEl, ctx, canvas, W, H) {
+    ctx.drawImage(videoEl, 0, 0, W, H);
+    const data = ctx.getImageData(0, 0, 80, 60).data;
+    let brightness = 0;
+    for (let i = 0; i < data.length; i += 4) brightness += (data[i]+data[i+1]+data[i+2])/3;
+    brightness /= (data.length / 4);
+    ctx.clearRect(0,0,W,H);
+    if (brightness < 5) {
+      updateFaceBadge('missing','NO CAMERA');
+    } else {
+      updateFaceBadge('ok','CAMERA OK (no AI)');
+      ctx.strokeStyle = 'rgba(0,212,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(W*.2, H*.1, W*.6, H*.8);
+    }
+  }
+
+  // ── Tab / Focus / Fullscreen events ───────────────────────
+  let tabCooldown = false;
+  function onVisibilityChange() {
+    if (document.hidden && !tabCooldown && state.active && !state.terminated) {
+      tabCooldown = true;
+      state.stats.tabs++;
+      updateStats();
+      logViolation('⇆ Tab switch / window hidden','high');
+      deductTrust(TRUST_DEDUCT.high);
+      showWarning('⇆ Tab Switch Detected',
+        'You switched away from the exam window. This is recorded. Further switches may terminate the exam.', true);
+      setTimeout(() => { tabCooldown = false; }, 4000);
+    }
+  }
+
+  let blurCooldown = false;
+  function onWindowBlur() {
+    if (!blurCooldown && state.active && !state.terminated && !document.hidden) {
+      blurCooldown = true;
+      state.stats.tabs++;
+      updateStats();
+      logViolation('⇆ Window lost focus','medium');
+      deductTrust(TRUST_DEDUCT.medium);
+      setTimeout(() => { blurCooldown = false; }, 5000);
+    }
+  }
+
+  function onFullscreenChange() {
+    if (!document.fullscreenElement && state.active && !state.terminated) {
+      logViolation('⛶ Exited fullscreen mode','medium');
+      deductTrust(TRUST_DEDUCT.medium);
+      showWarning('⛶ Fullscreen Exited','Please return to fullscreen to continue the exam.', false);
+    }
+  }
+
+  function onKeyDown(e) {
+    const blocked = ['F12','F11','F5'];
+    const combo = (e.ctrlKey||e.metaKey) && ['c','v','a','u','j','i','s','p','r','t','w'].includes(e.key.toLowerCase());
+    if (blocked.includes(e.key) || combo) {
+      e.preventDefault();
+      logViolation(`⌨ Blocked: ${e.ctrlKey?'Ctrl+':e.metaKey?'Cmd+':''}${e.key}`,'low');
+      deductTrust(TRUST_DEDUCT.low);
+    }
+  }
+
+  // ── Trust & violations ─────────────────────────────────────
+  function deductTrust(amount) {
+    if (state.terminated) return;
+    state.trustScore = Math.max(0, state.trustScore - amount);
+    const el = $('trust-score');
+    if (el) {
+      el.textContent = Math.round(state.trustScore);
+      el.className = 'trust-score' + (state.trustScore < 40 ? ' low' : state.trustScore < 70 ? ' medium' : '');
+    }
+    if (state.trustScore <= AUTO_TERM_TRUST) terminateExam('Trust score critically low');
+  }
+
+  function logViolation(msg, severity='medium') {
+    const ts = new Date().toLocaleTimeString('en-US',{hour12:false});
+    state.violations.push({msg,severity,ts});
+
+    const list = $('vio-list');
+    if (list) {
+      const li = document.createElement('li');
+      li.className = 'vio-item ' + severity;
+      li.innerHTML = `<span class="vio-time">${ts}</span><span class="vio-msg">${msg}</span>`;
+      list.prepend(li);
+      while (list.children.length > 20) list.removeChild(list.lastChild);
+    }
+    const cnt = $('vio-count');
+    if (cnt) cnt.textContent = state.violations.length;
+
+    triggerFlash();
+
+    const badge = $('alert-badge');
+    if (badge) {
+      badge.classList.remove('hidden');
+      clearTimeout(badge._t);
+      badge._t = setTimeout(() => badge.classList.add('hidden'), 3000);
+    }
+  }
+
+  function triggerFlash() {
+    const f = $('violation-flash');
+    if (!f) return;
+    f.classList.remove('hidden');
+    f.style.animation = 'none';
+    requestAnimationFrame(() => {
+      f.style.animation = '';
+      setTimeout(() => f.classList.add('hidden'), 350);
+    });
+  }
+
+  // ── Warning modal ──────────────────────────────────────────
+  function showWarning(title, msg, force=false) {
+    if (state.terminated) return;
+    state.warningQueue.push({title,msg});
+    if (!state.warningActive) processWarningQueue();
+  }
+
+  function processWarningQueue() {
+    if (!state.warningQueue.length) { state.warningActive = false; return; }
+    if (state.terminated) return;
+    state.warningActive = true;
+    state.warningCount++;
+    const {title,msg} = state.warningQueue.shift();
+
+    const m = $('warning-modal');
+    if (!m) return;
+    $('modal-title').textContent = title;
+    $('modal-msg').textContent   = msg;
+
+    const wc = $('modal-warning-count');
+    if (wc) {
+      wc.textContent = `Warning ${state.warningCount} of ${MAX_WARNINGS}`;
+      wc.className = 'modal-warn-count' + (state.warningCount >= MAX_WARNINGS - 1 ? ' danger' : '');
+      wc.classList.remove('hidden');
+    }
+    const wb = $('warn-progress-bar');
+    if (wb) {
+      const pct = (state.warningCount / MAX_WARNINGS) * 100;
+      wb.style.width = pct + '%';
+      wb.style.background = pct >= 80 ? '#ff3355' : pct >= 60 ? '#ffcc00' : '#00d4ff';
+    }
+    m.classList.remove('hidden');
+
+    if (state.warningCount >= MAX_WARNINGS) {
+      const btn = $('modal-ok-btn');
+      if (btn) { btn.textContent='View Report'; btn.onclick = () => terminateExam('Max warnings reached'); }
+      setTimeout(() => terminateExam('Max warnings reached'), 5000);
+    }
+  }
+
+  function dismissWarning() {
+    const m = $('warning-modal');
+    if (m) m.classList.add('hidden');
+    const btn = $('modal-ok-btn');
+    if (btn) { btn.textContent='I Understand'; btn.onclick = dismissWarning; }
+    setTimeout(() => {
+      state.warningActive = false;
+      processWarningQueue();
+    }, 300);
+  }
+
+  // ── Auto-terminate ─────────────────────────────────────────
+  function terminateExam(reason) {
+    if (state.terminated) return;
+    state.terminated = true;
+    state.active = false;
+    logViolation(`🚫 EXAM TERMINATED: ${reason}`, 'critical');
+    const m = $('warning-modal');
+    if (m) {
+      $('modal-title').textContent = '🚫 Exam Terminated';
+      $('modal-msg').textContent   = `Reason: ${reason}\n\nThis incident has been recorded.`;
+      const btn = $('modal-ok-btn');
+      if (btn) { btn.textContent='View Report'; btn.onclick = () => { m.classList.add('hidden'); submitExam(false); }; }
+      m.classList.remove('hidden');
+    }
+    stop();
+  }
+
+  function updateFaceBadge(cls, text) {
+    const el = $('face-status');
+    if (el) { el.className='face-badge '+cls; el.textContent=text; }
+  }
+
+  function updateStats() {
+    const t = $('stat-tabs');    if (t) t.textContent = state.stats.tabs;
+    const l = $('stat-lookaways'); if (l) l.textContent = state.stats.lookAways;
+    const n = $('stat-noise');   if (n) n.textContent = state.stats.noiseEvents;
+  }
+
+  function stop() {
+    state.active = false;
+    clearInterval(state.faceInterval);
+    if (state.videoStream) state.videoStream.getTracks().forEach(t => t.stop());
+    if (state.audioStream) state.audioStream.getTracks().forEach(t => t.stop());
+    if (state.audioContext) state.audioContext.close().catch(()=>{});
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    document.removeEventListener('fullscreenchange', onFullscreenChange);
+    window.removeEventListener('blur', onWindowBlur);
+  }
+
+  return {
+    init, start, stop, dismissWarning, terminateExam,
+    getState:      () => ({...state}),
+    getTrustScore: () => state.trustScore,
+    getViolations: () => [...state.violations],
+    getStats:      () => ({...state.stats}),
+    isTerminated:  () => state.terminated,
+    getWarningCount: () => state.warningCount,
+  };
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  EXAM CONTROLLER
+// ══════════════════════════════════════════════════════════════
+const ExamState = {
+  candidate:'', examId:'', subject:'', durationSecs:1800,
+  currentQ:0, answers:{}, timerInterval:null,
+  remainingSecs:0, startTimestamp:null, submitted:false, tabSwitches:0,
+};
+
+function $(id) { return document.getElementById(id); }
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const sc = $(id); if (sc) sc.classList.add('active');
+}
+
+function fmtTime(secs) {
+  const m = Math.floor(secs/60).toString().padStart(2,'0');
+  const s = (secs%60).toString().padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+// FIX #10: startExam now calls Proctor.start() correctly
+async function startExam() {
+  const name = $('inp-name').value.trim();
+  if (!name) {
+    $('inp-name').style.borderColor = '#ff3355';
+    $('inp-name').focus();
+    return;
+  }
+  $('inp-name').style.borderColor = '';
+
+  ExamState.candidate    = name;
+  ExamState.examId       = $('inp-examid').value || 'EX-2024-001';
+  ExamState.subject      = $('inp-subject').value || 'Mixed';
+  ExamState.durationSecs = parseInt($('inp-duration').value || '30') * 60;
+  ExamState.remainingSecs= ExamState.durationSecs;
+  ExamState.startTimestamp = Date.now();
+  ExamState.answers      = {};
+  ExamState.currentQ     = 0;
+  ExamState.submitted    = false;
+
+  // Rebuild question set from selected branch
+  const qCount = Math.min(20, Math.max(5, Math.floor(ExamState.durationSecs / 120)));
+  QUESTIONS = buildExamQuestions(ExamState.subject, qCount);
+
+  const btn = $('btn-start');
+  btn.disabled = true;
+  btn.innerHTML = '<span>Starting…</span>';
+
+  // Show exam screen first so video element exists in DOM
+  showScreen('screen-exam');
+  $('hdr-subject').textContent   = ExamState.subject;
+  $('hdr-examid').textContent    = ExamState.examId;
+  $('hdr-candidate').textContent = name;
+
+  renderQuestion();
+  renderDots();
+  startTimer();
+
+  // FIX #3: Start Proctor engine — wires camera, mic, and detection loops
+  await Proctor.start($('cam-video'));
+
+  // Tab-switch tracking via ExamState (for result screen counter)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !ExamState.submitted) ExamState.tabSwitches++;
+  });
+}
+
+// Timer
+function startTimer() {
+  updateTimerDisplay();
+  ExamState.timerInterval = setInterval(() => {
+    ExamState.remainingSecs--;
+    updateTimerDisplay();
+    if (ExamState.remainingSecs <= 0) { clearInterval(ExamState.timerInterval); submitExam(true); }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const el = $('timer-display');
+  if (!el) return;
+  el.textContent = fmtTime(ExamState.remainingSecs);
+  const pct = ExamState.remainingSecs / ExamState.durationSecs;
+  el.className = 'timer-display' + (pct < 0.1 ? ' danger' : pct < 0.25 ? ' warning' : '');
+}
+
+// Questions
+function renderQuestion() {
+  const q = QUESTIONS[ExamState.currentQ];
+  const letters = ['A','B','C','D'];
+  const field = q._field || "";
+  const colour = FIELD_COLOURS[field] || "#94a3b8";
+  const badge = field
+    ? `<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 9px;border-radius:999px;margin-left:10px;vertical-align:middle;background:${colour}22;color:${colour};border:1px solid ${colour}55;text-transform:uppercase;">${field}</span>`
+    : '';
+  const isAnswered = ExamState.answers[q.id] !== undefined;
+
+  $('question-container').innerHTML = `
+    <div class="question-block">
+      <div class="q-num">Question ${ExamState.currentQ+1} <span>/ ${QUESTIONS.length}</span>${badge}</div>
+      <div class="q-text">${q.text}</div>
+      <ul class="options-list">
+        ${q.options.map((opt,i) => {
+          const sel = ExamState.answers[q.id]===i;
+          const dimStyle = isAnswered && !sel ? 'opacity:.4;pointer-events:none;' : '';
+          const lockStyle = isAnswered ? 'pointer-events:none;' : '';
+          return `<li class="option-item ${sel?'selected':''}" style="${dimStyle||lockStyle}" onclick="selectOption(${i})">
+            <span class="opt-letter">${letters[i]}</span>
+            <span class="opt-text">${opt}</span>
+            ${sel?'<span class="opt-check">✓</span>':''}
+          </li>`;
+        }).join('')}
+      </ul>
+      ${isAnswered && ExamState.currentQ < QUESTIONS.length-1
+        ? `<div style="margin-top:14px;font-size:12px;color:${colour}bb;letter-spacing:.05em;animation:fade-in .3s ease;">⟶ Moving to next question…</div>`
+        : ''}
+    </div>`;
+
+  const answered = Object.keys(ExamState.answers).length;
+  const fill = $('q-progress-fill');
+  if (fill) fill.style.width = (answered/QUESTIONS.length*100) + '%';
+  const pc = $('q-progress-count');
+  if (pc) pc.textContent = `${answered} / ${QUESTIONS.length} answered`;
+
+  $('btn-prev').disabled = ExamState.currentQ === 0;
+  $('btn-next').style.display = ExamState.currentQ < QUESTIONS.length-1 ? '' : 'none';
+  $('submit-row').classList.toggle('hidden', ExamState.currentQ < QUESTIONS.length-1);
+  renderDots();
+}
+
+function renderDots() {
+  const dots = $('q-dots');
+  if (!dots) return;
+  dots.innerHTML = QUESTIONS.map((q,i) => `
+    <div class="q-dot ${i===ExamState.currentQ?'active':''} ${ExamState.answers[q.id]!==undefined?'answered':''}"
+         onclick="goToQuestion(${i})" title="Q${i+1}"></div>`).join('');
+}
+
+let _autoAdvTimer = null;
+function selectOption(idx) {
+  const q = QUESTIONS[ExamState.currentQ];
+  if (ExamState.answers[q.id] !== undefined) return; // already locked
+  ExamState.answers[q.id] = idx;
+  renderQuestion();
+  // Auto-advance after 1.2 s if not on last question
+  if (ExamState.currentQ < QUESTIONS.length-1) {
+    if (_autoAdvTimer) clearTimeout(_autoAdvTimer);
+    _autoAdvTimer = setTimeout(() => { _autoAdvTimer=null; nextQuestion(); }, 1200);
+  }
+}
+function nextQuestion()    { if(_autoAdvTimer){clearTimeout(_autoAdvTimer);_autoAdvTimer=null;} if(ExamState.currentQ<QUESTIONS.length-1){ExamState.currentQ++;renderQuestion();} }
+function prevQuestion()    { if(_autoAdvTimer){clearTimeout(_autoAdvTimer);_autoAdvTimer=null;} if(ExamState.currentQ>0){ExamState.currentQ--;renderQuestion();} }
+function goToQuestion(idx) { if(_autoAdvTimer){clearTimeout(_autoAdvTimer);_autoAdvTimer=null;} ExamState.currentQ=idx; renderQuestion(); }
+
+// Submit
+async function submitExam(timeUp=false) {
+  if (ExamState.submitted) return;
+  ExamState.submitted = true;
+  clearInterval(ExamState.timerInterval);
+
+  let correct = 0;
+  QUESTIONS.forEach(q => { if (ExamState.answers[q.id]===q.correct) correct++; });
+  const score = Math.round((correct/QUESTIONS.length)*100);
+
+  const trust    = Proctor.getTrustScore();
+  const stats    = Proctor.getStats();
+  const vios     = Proctor.getViolations();
+  const warnings = Proctor.getWarningCount();
+  const timeTaken = Math.floor((Date.now()-ExamState.startTimestamp)/1000);
+
+  Proctor.stop();
+
+  let status = 'CLEAN';
+  if (trust < 40 || warnings > 8) status = 'SUSPICIOUS';
+  else if (trust < 70 || warnings > 3) status = 'FLAGGED';
+
+  $('res-candidate').textContent = `${ExamState.candidate} · ${ExamState.examId} · ${ExamState.subject}`;
+  $('res-score').textContent     = score;
+  $('res-trust').textContent     = Math.round(trust);
+  $('res-status').textContent    = status;
+  $('res-status').className      = 'res-status ' + status;
+  $('rstat-tabs').textContent    = ExamState.tabSwitches;
+  $('rstat-looks').textContent   = stats.lookAways;
+  $('rstat-noise').textContent   = stats.noiseEvents;
+  $('rstat-warns').textContent   = vios.length;
+  $('rstat-time').textContent    = fmtTime(timeTaken);
+  $('rstat-answered').textContent= `${Object.keys(ExamState.answers).length}/${QUESTIONS.length}`;
+
+  // Incident log
+  const list = $('res-incidents');
+  if (list) {
+    if (vios.length === 0) {
+      list.innerHTML = '<li class="clean-entry">No violations recorded — exam completed cleanly. ✓</li>';
+    } else {
+      list.innerHTML = vios.slice(-30).reverse().map(v =>
+        `<li class="${v.severity}"><span style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-right:8px">${v.ts}</span>${v.msg}</li>`
+      ).join('');
+    }
+  }
+
+  if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  showScreen('screen-results');
+}
+
+// ── Boot: load AI models on page load ─────────────────────────
+// FIX #11: Models are loaded eagerly so they're ready before exam starts
+window.addEventListener('DOMContentLoaded', () => {
+  Proctor.init();
+});
+</script>
+</body>
+</html>

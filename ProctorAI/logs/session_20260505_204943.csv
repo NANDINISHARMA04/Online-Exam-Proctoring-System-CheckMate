@@ -1,0 +1,17 @@
+timestamp,type,severity,message
+20:51:38,tab_switch,high,Browser tab hidden / focus lost
+20:51:41,tab_switch,high,Browser tab hidden / focus lost
+20:51:44,tab_switch,high,Browser tab hidden / focus lost
+20:52:05,tab_switch,high,Browser tab hidden / focus lost
+20:52:33,tab_switch,high,User switched tab / minimised window
+21:11:35,tab_switch,high,User switched tab / minimised window
+21:11:37,tab_switch,high,User switched tab / minimised window
+21:11:42,tab_switch,high,User switched tab / minimised window
+21:11:46,tab_switch,high,User switched tab / minimised window
+21:11:49,tab_switch,high,Browser tab hidden / focus lost
+21:11:52,tab_switch,high,User switched tab / minimised window
+21:11:55,tab_switch,high,User switched tab / minimised window
+21:11:58,tab_switch,high,Browser tab hidden / focus lost
+21:12:03,tab_switch,high,Browser tab hidden / focus lost
+21:12:07,tab_switch,high,User switched tab / minimised window
+21:12:09,tab_switch,high,User switched tab / minimised window

@@ -1,0 +1,119 @@
+{
+  "session_start": "2026-05-05T20:49:43.128340",
+  "candidate": "nandini",
+  "exam_id": "EX-2024-001",
+  "violations": [
+    {
+      "timestamp": "20:51:38",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "Browser tab hidden / focus lost",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "20:51:41",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "Browser tab hidden / focus lost",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "20:51:44",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "Browser tab hidden / focus lost",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "20:52:05",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "Browser tab hidden / focus lost",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "20:52:33",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:11:35",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:11:37",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:11:42",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:11:46",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:11:49",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "Browser tab hidden / focus lost",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:11:52",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:11:55",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:11:58",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "Browser tab hidden / focus lost",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:12:03",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "Browser tab hidden / focus lost",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:12:07",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    },
+    {
+      "timestamp": "21:12:09",
+      "type": "tab_switch",
+      "severity": "high",
+      "msg": "User switched tab / minimised window",
+      "snapshot": ""
+    }
+  ]
+}
